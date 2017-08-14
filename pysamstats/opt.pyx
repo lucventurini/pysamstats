@@ -326,6 +326,8 @@ cdef class CoverageExtStrand(PileupStat):
         CountStrand all
         CountStrand pp
         CountStrand mate_unmapped
+        CountStrand pp_read1
+        CountStrand pp_read2
         CountStrand mate_other_chr
         CountStrand same_strand
         CountStrand faceaway
@@ -341,6 +343,8 @@ cdef class CoverageExtStrand(PileupStat):
         self.faceaway = CountStrand()
         self.softclipped = CountStrand()
         self.duplicate = CountStrand()
+        self.pp_read1 = CountStrand()
+        self.pp_read2 = CountStrand()
         self.reset()
 
     def reset(self):
@@ -352,6 +356,8 @@ cdef class CoverageExtStrand(PileupStat):
         self.faceaway.reset()
         self.softclipped.reset()
         self.duplicate.reset()
+        self.pp_read1.reset()
+        self.pp_read2.reset()
 
     cdef void recv(self, bam_pileup1_t* read, PileupColumn col, bytes refbase):
         cdef:
@@ -361,6 +367,8 @@ cdef class CoverageExtStrand(PileupStat):
             bint is_duplicate
             bint mate_is_unmappped
             bint mate_is_reverse
+            bint is_read1
+            bint is_read2
             int tlen
 
         # convenience variables
@@ -370,12 +378,19 @@ cdef class CoverageExtStrand(PileupStat):
         is_duplicate = <bint>(flag & BAM_FDUP)
         mate_is_unmapped = <bint>(flag & BAM_FMUNMAP)
         mate_is_reverse = <bint>(flag & BAM_FMREVERSE)
+        is_read1 = <bint>(flag & BAM_FREAD1)
+        is_read2 = <bint>(flag & BAM_FREAD2)
         tlen = read.b.core.isize
 
         # do the counting
         self.all.incr(is_reverse)
         if is_proper_pair:
             self.pp.incr(is_reverse)
+            if is_read1:
+                self.pp_read1.incr(is_reverse)
+            elif is_read2:
+                self.pp_read2.incr(is_reverse)
+
         if mate_is_unmapped:
             self.mate_unmapped.incr(is_reverse)
         elif col.tid != read.b.core.mtid:
@@ -400,6 +415,12 @@ cdef class CoverageExtStrand(PileupStat):
                'reads_pp': self.pp.all,
                'reads_pp_fwd': self.pp.fwd,
                'reads_pp_rev': self.pp.rev,
+               'reads_pp_read1': self.pp_read1.all,
+               'reads_pp_read1_fwd': self.pp_read1.fwd,
+               'reads_pp_read1_rev': self.pp_read1.rev,
+               'reads_pp_read2': self.pp_read2.all,
+               'reads_pp_read2_fwd': self.pp_read2.fwd,
+               'reads_pp_read2_rev': self.pp_read2.rev,
                'reads_mate_unmapped': self.mate_unmapped.all,
                'reads_mate_unmapped_fwd': self.mate_unmapped.fwd,
                'reads_mate_unmapped_rev': self.mate_unmapped.rev,
